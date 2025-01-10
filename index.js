@@ -47,19 +47,19 @@ commandArgs.forEach((arg, index) => {
   }
 });
 
+if (command === 'init') {
+  fs.writeFileSync(HDB_ENV_FILE, HDB_ENV_FILE_CONTENTS);
+  console.info(
+    '.env.hdb file has been initialized with default values. Please edit the file before continuing.'
+  );
+  process.exit(1);
+}
+
+const { HARPERDB_TARGET, CLI_TARGET_USERNAME, CLI_TARGET_PASSWORD } =
+  prepareEnvironment();
+
 (async () => {
   try {
-    if (command === 'init') {
-      fs.writeFileSync(HDB_ENV_FILE, HDB_ENV_FILE_CONTENTS);
-      console.info(
-        '.env.hdb file has been initialized with default values. Please edit the file before continuing.'
-      );
-      process.exit(1);
-    }
-
-    const { HARPERDB_TARGET, CLI_TARGET_USERNAME, CLI_TARGET_PASSWORD } =
-      prepareEnvironment();
-
     // Print configuration and prompt for confirmation
     console.log(`
 Configuration:
