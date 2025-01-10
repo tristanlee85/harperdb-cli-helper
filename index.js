@@ -13,79 +13,26 @@ CLI_TARGET_PASSWORD="<password>"
 `;
 const HDB_EXEC = 'harperdb';
 const HDB_EXEC_COMMANDS = ['deploy_component', 'restart', 'run', 'dev'];
-const BYPASS_PROMPT = ['run', 'dev'];
+const BYPASS_PROMPT = ['init', 'run', 'dev'];
 
+// Commands that automatically issue a restart
+const AUTO_RESTART_COMMANDS = ['deploy_component', 'drop', 'reset'];
+
+// Components to retain during a drop operation
+const RETAIN_COMPONENTS = ['prometheus_exporter', 'status-check'];
+
+// Aliases for HarperDB CLI commands
 const commandAliases = {
   deploy: 'deploy_component',
   components: 'get_components',
 };
 
+// Commands not part of the HarperDB CLI
 const customOperations = {
   reset: resetComponents,
   drop: dropComponents,
   logs: getLogs,
 };
-
-const autoRestartCommands = ['deploy_component', 'drop', 'reset'];
-
-const retainComponents = ['prometheus_exporter', 'status-check'];
-
-// Resolve globally-installed module
-function resolveGlobal(moduleName) {
-  const globalRoot = execSync('npm root -g').toString().trim();
-  const modulePath = path.join(globalRoot, moduleName);
-  if (!fs.existsSync(modulePath)) {
-    throw new Error(`Module '${moduleName}' is not installed globally.`);
-  }
-  return require(modulePath);
-}
-
-// Load the globally installed dotenv
-const dotenv = require('dotenv');
-
-// Load environment variables
-//dotenv.config({ path: '.env' });
-dotenv.config({ path: HDB_ENV_FILE, override: true });
-
-// Helper to prompt for confirmation using inquirer
-const prompt = async (query) => {
-  const { confirm } = await inquirer.prompt([
-    {
-      type: 'confirm',
-      name: 'confirm',
-      message: query.trim(),
-      default: true,
-    },
-  ]);
-  return confirm;
-};
-
-// Verify required files
-// if (!fs.existsSync('.env')) {
-//   console.warn(
-//     '.env file is missing. Some environment variables may not be loaded.'
-//   );
-// }
-
-if (!fs.existsSync(HDB_ENV_FILE)) {
-  fs.writeFileSync(HDB_ENV_FILE, HDB_ENV_FILE_CONTENTS);
-  console.info(
-    '.env.hdb file is missing and has been initialized with default values. Please edit the file and run the command again.'
-  );
-
-  process.exit(1);
-}
-
-// Verify required environment variables
-const { HARPERDB_TARGET, CLI_TARGET_USERNAME, CLI_TARGET_PASSWORD } =
-  process.env;
-
-if (!HARPERDB_TARGET || !CLI_TARGET_USERNAME || !CLI_TARGET_PASSWORD) {
-  console.error(
-    'Required environment variables are missing in .env.hdb. Exiting...'
-  );
-  process.exit(1);
-}
 
 // Determine the command and arguments
 const command = commandAliases[process.argv[2]] || process.argv[2];
@@ -102,6 +49,17 @@ commandArgs.forEach((arg, index) => {
 
 (async () => {
   try {
+    if (command === 'init') {
+      fs.writeFileSync(HDB_ENV_FILE, HDB_ENV_FILE_CONTENTS);
+      console.info(
+        '.env.hdb file has been initialized with default values. Please edit the file before continuing.'
+      );
+      process.exit(1);
+    }
+
+    const { HARPERDB_TARGET, CLI_TARGET_USERNAME, CLI_TARGET_PASSWORD } =
+      prepareEnvironment();
+
     // Print configuration and prompt for confirmation
     console.log(`
 Configuration:
@@ -137,7 +95,7 @@ Configuration:
       }
     }
 
-    if (autoRestartCommands.includes(command)) {
+    if (AUTO_RESTART_COMMANDS.includes(command)) {
       console.log('Restarting HarperDB...');
       await runCLICommand('restart');
     }
@@ -248,7 +206,7 @@ async function runAPIOperation(command, commandArgs) {
 async function resetComponents() {
   const components = await runAPIOperation('get_components');
   const componentsToDelete = components.entries
-    .filter((entry) => !retainComponents.includes(entry.name))
+    .filter((entry) => !RETAIN_COMPONENTS.includes(entry.name))
     .map((entry) => entry.name);
 
   if (componentsToDelete.length === 0) {
@@ -290,7 +248,7 @@ async function resetComponents() {
 async function dropComponents() {
   const components = await runAPIOperation('get_components');
   const componentsToDelete = components.entries
-    .filter((entry) => !retainComponents.includes(entry.name))
+    .filter((entry) => !RETAIN_COMPONENTS.includes(entry.name))
     .map((entry) => entry.name);
 
   if (componentsToDelete.length === 0) {
@@ -383,4 +341,49 @@ async function getLogs({ filter, lookback = 15 }) {
     console.log('\n');
     console.groupEnd();
   });
+}
+
+// Resolve globally-installed module
+function resolveGlobal(moduleName) {
+  const globalRoot = execSync('npm root -g').toString().trim();
+  const modulePath = path.join(globalRoot, moduleName);
+  if (!fs.existsSync(modulePath)) {
+    throw new Error(`Module '${moduleName}' is not installed globally.`);
+  }
+  return require(modulePath);
+}
+
+// Helper to prompt for confirmation using inquirer
+async function prompt(query) {
+  const { confirm } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'confirm',
+      message: query.trim(),
+      default: true,
+    },
+  ]);
+  return confirm;
+}
+
+function prepareEnvironment() {
+  const dotenv = require('dotenv');
+
+  if (!fs.existsSync(HDB_ENV_FILE)) {
+    console.warn('.env.hdb file is missing. Run "hdb init" to create it.');
+    process.exit(1);
+  }
+
+  dotenv.config({ path: HDB_ENV_FILE, override: true });
+
+  // Verify required environment variables
+  const { HARPERDB_TARGET, CLI_TARGET_USERNAME, CLI_TARGET_PASSWORD } =
+    process.env;
+
+  if (!HARPERDB_TARGET || !CLI_TARGET_USERNAME || !CLI_TARGET_PASSWORD) {
+    console.error('Required environment variables are missing in .env.hdb.');
+    process.exit(1);
+  }
+
+  return { HARPERDB_TARGET, CLI_TARGET_USERNAME, CLI_TARGET_PASSWORD };
 }

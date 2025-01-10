@@ -17,6 +17,10 @@
     "path": "^0.12.7",
     "readline": "^1.3.0"
   },
-  "author": "",
-  "license": "ISC"
+  "author": "Tristan Lee",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tristanlee85/harperdb-cli-helper.git"
+  }
 }

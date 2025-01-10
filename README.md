@@ -12,19 +12,24 @@ A helper script for managing HarperDB operations.
 
 ## Installation
 
-1. Clone the repository or download the source code.
-2. Navigate to the project directory.
-3. Install the dependencies using npm:
+Install the script globally using npm:
 
-   ```bash
-   npm install
-   ```
+```bash
+npm install -g git+ssh://git@github.com:tristanlee85/harperdb-cli-helper.git#main
+```
+
+The `hdb` command will be available globally.
 
 ## Configuration
 
-Before using the script, you need to configure the environment variables. The script uses a `.env.hdb` file to load necessary configurations.
+Before using the script, you need to configure the environment variables. The script uses a `.env.hdb` file to load necessary configurations on a per-project basis.
 
-1. Create a `.env.hdb` file in the root directory if it doesn't exist. The script will automatically create one with default values if it's missing.
+1. Generate the default `.env.hdb` file by running:
+
+```bash
+hdb init
+```
+
 2. Edit the `.env.hdb` file to include your HarperDB instance details:
 
    ```plaintext
@@ -35,55 +40,35 @@ Before using the script, you need to configure the environment variables. The sc
 
 ## Usage
 
-To use the script, you can run it directly from the command line. The script provides several commands to interact with HarperDB.
-
-### Running the Script
-
-You can run the script using the following command:
+The script provides several commands to interact with HarperDB. Similar to running `harperdb`, `hdb` should be executed from the root of your project.
 
 ```bash
-npm start <command> [options]
+hdb <command> [options]
 ```
 
-Alternatively, you can use the binary directly:
+All commands available to `harperdb` are available to `hdb`. For example, `hdb run .` is equivalent to `harperdb run .`.
 
-```bash
-./index.js <command> [options]
-```
+### CustomCommands
 
-## Commands
-
-- **deploy**: Deploy a component to HarperDB.
-- **restart**: Restart the HarperDB instance.
-- **run**: Run a specific operation.
-- **dev**: Run the script in development mode.
-- **reset**: Reset components.
-- **drop**: Drop components.
-- **logs**: Retrieve logs from HarperDB.
+- **reset**: Resets the HarperDB instance components to the default state by dropping all components.
+  ```bash
+  hdb reset
+  ```
+- **drop**: Interactive selection of components to drop.
+  ```bash
+  hdb drop
+  ```
+- **logs**: Retrieve logs from HarperDB with filtering and lookback duration.
+  ```bash
+  hdb logs # Show logs from the last 15 minutes
+  hdb logs filter="error" # Show logs with the word "error" in the message
+  hdb logs filter=/some-regex/ lookback=45 # Show logs from the last 45 minutes matching the expression in the message
+  ```
 
 ### Options
 
 - `-o=<file>`: Write the operation output to a specified file.
 
-### Examples
-
-- Deploy a component:
-
-  ```bash
-  npm start deploy
-  ```
-
-- Retrieve logs with a filter:
-
-  ```bash
-  npm start logs --filter="/error/"
-  ```
-
 ## License
 
 This project is licensed under the ISC License.
-
-```
-
-This `README.md` provides a basic overview of how to set up and use your `hdb_helper` module. You can expand it with more detailed instructions or examples as needed.
-```
