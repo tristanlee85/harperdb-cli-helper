@@ -1,0 +1,22 @@
+{
+  "name": "hdb_helper",
+  "version": "1.0.0",
+  "description": "A helper script for HarperDB operations",
+  "main": "index.js",
+  "bin": {
+    "hdb": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "child_process": "^1.0.2",
+    "dotenv": "^16.4.7",
+    "fs": "^0.0.1-security",
+    "inquirer": "^8.2.0",
+    "path": "^0.12.7",
+    "readline": "^1.3.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
