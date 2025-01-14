@@ -1,13 +1,12 @@
-import { runAPIOperation } from '../../utils/runAPIOperation.js';
-import { prompt } from '../../utils/prompt.js';
-import logger from '../../utils/logger.js';
+const runAPIOperation = require('../../utils/runAPIOperation.js');
+const prompt = require('../../utils/prompt.js');
+const logger = require('../../utils/logger.js');
+const { RETAIN_COMPONENTS } = require('../../utils/constants.js');
 
-const RETAIN_COMPONENTS = ['prometheus_exporter', 'status-check'];
+exports.command = 'drop';
+exports.describe = 'Interactive selection of components to drop';
 
-export const command = 'drop';
-export const describe = 'Interactive selection of components to drop';
-
-export const handler = async () => {
+exports.handler = async () => {
   try {
     const components = await runAPIOperation('get_components');
     const componentsToDelete = components.entries

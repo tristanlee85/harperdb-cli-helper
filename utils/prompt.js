@@ -1,6 +1,6 @@
-import prompts from 'prompts';
+const prompts = require('prompts');
 
-export async function prompt(query) {
+module.exports = async function prompt(query) {
   const response = await prompts({
     type: 'confirm',
     name: 'confirm',
@@ -9,4 +9,4 @@ export async function prompt(query) {
   });
 
   return response.confirm;
-}
+};

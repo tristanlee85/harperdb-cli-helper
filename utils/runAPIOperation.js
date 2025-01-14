@@ -1,6 +1,6 @@
-import logger from './logger.js';
+const logger = require('./logger.js');
 
-export async function runAPIOperation(command, commandArgs) {
+module.exports = async function runAPIOperation(command, commandArgs) {
   const { HARPERDB_TARGET, CLI_TARGET_USERNAME, CLI_TARGET_PASSWORD } =
     process.env;
 
@@ -30,4 +30,4 @@ export async function runAPIOperation(command, commandArgs) {
 
   const data = await response.json();
   return data;
-}
+};

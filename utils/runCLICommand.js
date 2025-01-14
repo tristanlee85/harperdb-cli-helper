@@ -1,8 +1,8 @@
-import { spawn } from 'child_process';
-import logger from './logger.js';
-import { HDB_EXEC } from './constants.js';
+const { spawn } = require('child_process');
+const logger = require('./logger.js');
+const { HDB_EXEC } = require('./constants.js');
 
-export async function runCLICommand(command, commandArgs) {
+module.exports = async function runCLICommand(command, commandArgs) {
   const args = [command, ...(commandArgs ? commandArgs : [])];
 
   logger.info(`Running command: ${HDB_EXEC} ${args.join(' ')}`);
@@ -38,4 +38,4 @@ export async function runCLICommand(command, commandArgs) {
       reject(new Error(`Failed to start process: ${error.message}`));
     });
   });
-}
+};

@@ -2,13 +2,12 @@
   "name": "hdb_helper",
   "version": "1.0.0",
   "description": "A helper script for HarperDB operations",
-  "type": "module",
-  "main": "index.js",
+  "type": "commonjs",
+  "main": "cli.js",
   "bin": {
-    "hdb": "./index.js"
+    "hdb": "./cli.js"
   },
   "scripts": {
-    "start": "node index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

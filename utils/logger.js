@@ -1,4 +1,4 @@
-import { createLogger, format, transports } from 'winston';
+const { createLogger, format, transports } = require('winston');
 
 const logger = createLogger({
   level: 'info',
@@ -13,8 +13,8 @@ const logger = createLogger({
   ),
   transports: [
     new transports.Console(),
-    new transports.File({ filename: 'app.log' }),
+    //new transports.File({ filename: 'app.log' }),
   ],
 });
 
-export default logger;
+module.exports = logger;

@@ -1,10 +1,9 @@
-import { runAPIOperation } from '../../utils/runAPIOperation.js';
-import logger from '../../utils/logger.js';
+const runAPIOperation = require('../../utils/runAPIOperation.js');
+const logger = require('../../utils/logger.js');
 
-export const command = 'list';
-export const describe = 'List all components';
-
-export const handler = async () => {
+exports.command = 'list';
+exports.describe = 'List all components';
+exports.handler = async () => {
   try {
     const components = await runAPIOperation('get_components');
     if (components.entries.length === 0) {

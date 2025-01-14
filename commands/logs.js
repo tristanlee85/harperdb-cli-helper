@@ -1,15 +1,14 @@
-import { runAPIOperation } from '../utils/runAPIOperation.js';
-import logger from '../utils/logger.js';
+const runAPIOperation = require('../utils/runAPIOperation.js');
+const logger = require('../utils/logger.js');
 
-export const command = 'logs [filter] [lookback]';
-export const describe =
+exports.command = 'logs';
+exports.describe =
   'Retrieve logs from HarperDB with filtering and lookback duration';
 
-export const builder = {
+exports.builder = {
   filter: {
     describe: 'Filter logs by a specific keyword or regex',
     type: 'string',
-    default: '',
   },
   lookback: {
     describe: 'Lookback duration in minutes',
@@ -18,7 +17,7 @@ export const builder = {
   },
 };
 
-export const handler = async (argv) => {
+exports.handler = async (argv) => {
   const { filter, lookback } = argv;
   try {
     const from = new Date(
