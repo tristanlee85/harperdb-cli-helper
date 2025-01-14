@@ -22,15 +22,15 @@ The `hdb` command will be available globally.
 
 ## Configuration
 
-Before using the script, you need to configure the environment variables. The script uses a `.env.hdb` file to load necessary configurations on a per-project basis.
+Before using the script, you need to configure the environment variables. The script uses a `.env.harperdb` file to load necessary configurations on a per-project basis.
 
-1. Generate the default `.env.hdb` file by running:
+1. Generate the default `.env.harperdb` file by running the following in the root of your project:
 
 ```bash
 hdb init
 ```
 
-2. Edit the `.env.hdb` file to include your HarperDB instance details:
+2. Edit the `.env.harperdb` file to include your HarperDB instance details:
 
    ```plaintext
    HARPERDB_TARGET="https://<instance>.harperdbcloud.com:9925"
@@ -43,20 +43,20 @@ hdb init
 The script provides several commands to interact with HarperDB. Similar to running `harperdb`, `hdb` should be executed from the root of your project.
 
 ```bash
-hdb <command> [options]
+hdb <command> [options...]
 ```
 
 All commands available to `harperdb` are available to `hdb`. For example, `hdb run .` is equivalent to `harperdb run .`.
 
-### CustomCommands
+### Custom Commands
 
-- **reset**: Resets the HarperDB instance components to the default state by dropping all components.
+- **reset**: Resets the HarperDB instance components to its initial state by dropping all components.
   ```bash
-  hdb reset
+  hdb components reset
   ```
 - **drop**: Interactive selection of components to drop.
   ```bash
-  hdb drop
+  hdb components drop
   ```
 - **logs**: Retrieve logs from HarperDB with filtering and lookback duration.
   ```bash
@@ -64,10 +64,6 @@ All commands available to `harperdb` are available to `hdb`. For example, `hdb r
   hdb logs filter="error" # Show logs with the word "error" in the message
   hdb logs filter=/some-regex/ lookback=45 # Show logs from the last 45 minutes matching the expression in the message
   ```
-
-### Options
-
-- `-o=<file>`: Write the operation output to a specified file.
 
 ## License
 
