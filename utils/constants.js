@@ -4,7 +4,13 @@ CLI_TARGET_USERNAME="HDB_ADMIN"
 CLI_TARGET_PASSWORD="<password>"
 `;
 const HDB_EXEC = 'harperdb';
-const HDB_EXEC_COMMANDS = ['deploy_component', 'restart', 'run', 'dev'];
+const HDB_EXEC_COMMANDS = [
+  'deploy',
+  'deploy_component',
+  'restart',
+  'run',
+  'dev',
+];
 const BYPASS_PROMPT = ['init', 'run', 'dev'];
 const AUTO_RESTART_COMMANDS = ['deploy_component', 'drop', 'reset'];
 const RETAIN_COMPONENTS = ['prometheus_exporter', 'status-check'];

@@ -17,4 +17,13 @@ const logger = createLogger({
   ],
 });
 
+let loggingEnabled = true;
+
+logger.toggleLogging = function (enable) {
+  loggingEnabled = enable;
+  this.transports.forEach((transport) => {
+    transport.silent = !loggingEnabled;
+  });
+};
+
 module.exports = logger;

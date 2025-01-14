@@ -12,9 +12,10 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "@inquirer/prompts": "^7.2.3",
+    "chalk": "^4.1.2",
     "dotenv": "^16.4.7",
     "inquirer": "^8.2.0",
-    "prompts": "^2.4.2",
     "winston": "^3.17.0",
     "yargs": "^17.7.2"
   },

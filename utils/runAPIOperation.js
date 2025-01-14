@@ -9,7 +9,9 @@ module.exports = async function runAPIOperation(command, commandArgs) {
     ...commandArgs,
   };
 
-  logger.info('Running API operation:', command, requestBody);
+  logger.info(
+    `Running API operation: ${command}\n${JSON.stringify(requestBody, null, 2)}`
+  );
 
   const response = await fetch(HARPERDB_TARGET, {
     method: 'POST',

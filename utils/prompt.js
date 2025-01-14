@@ -1,12 +1,10 @@
-const prompts = require('prompts');
+const { confirm: confirmPrompt } = require('@inquirer/prompts');
 
-module.exports = async function prompt(query) {
-  const response = await prompts({
-    type: 'confirm',
-    name: 'confirm',
+module.exports = async function confirm(query) {
+  const response = await confirmPrompt({
     message: query.trim(),
     initial: true,
   });
 
-  return response.confirm;
+  return response;
 };

@@ -1,4 +1,5 @@
 const runAPIOperation = require('../../utils/runAPIOperation.js');
+const { checkbox } = require('@inquirer/prompts');
 const prompt = require('../../utils/prompt.js');
 const logger = require('../../utils/logger.js');
 const { RETAIN_COMPONENTS } = require('../../utils/constants.js');
@@ -18,9 +19,7 @@ exports.handler = async () => {
       return;
     }
 
-    const { selectedComponents } = await prompt({
-      type: 'checkbox',
-      name: 'selectedComponents',
+    const selectedComponents = await checkbox({
       message: 'Select components to drop:',
       choices: componentsToDelete,
     });

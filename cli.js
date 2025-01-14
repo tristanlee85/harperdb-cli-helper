@@ -38,6 +38,12 @@ const {
       const commandArgs = argv.options || argv._.slice(1);
 
       if (!isInitialized()) {
+        const confirm = await prompt(
+          `This project has not been initialized for 'hdb' commands. Initialize now?`
+        );
+        if (!confirm) {
+          yargs.exit(0);
+        }
         if (!(await initialize())) {
           yargs.exit(0);
         }

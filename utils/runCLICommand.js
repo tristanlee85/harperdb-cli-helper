@@ -3,12 +3,19 @@ const logger = require('./logger.js');
 const { HDB_EXEC } = require('./constants.js');
 
 module.exports = async function runCLICommand(command, commandArgs) {
-  const args = [command, ...(commandArgs ? commandArgs : [])];
+  const env = { ...process.env };
+  const args = [
+    command,
+    ...(commandArgs ? commandArgs : []),
+    `target=${process.env.HARPERDB_TARGET}`,
+  ];
 
   logger.info(`Running command: ${HDB_EXEC} ${args.join(' ')}`);
   return new Promise((resolve, reject) => {
     const startTime = performance.now();
-    const process = spawn(HDB_EXEC, args);
+    const process = spawn(HDB_EXEC, args, {
+      env,
+    });
 
     let stdout = '';
     let stderr = '';
