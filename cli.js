@@ -19,6 +19,24 @@ const {
 (async () => {
   await yargs(hideBin(process.argv))
     .scriptName('hdb')
+    .usage(
+      '$0 <command> [options...]',
+      'Runs command as-is using `harperdb <command> [options...]`.',
+      (yargs) => {
+        yargs
+          .parserConfiguration({
+            'unknown-options-as-args': true,
+          })
+          .strict(false);
+      },
+      async (argv) => {
+        const command = argv.command;
+        const commandArgs = argv.options;
+        const options = { ...argv };
+
+        await executeCommand(command, commandArgs, options);
+      }
+    )
     .commandDir('./commands')
     .option('restart', {
       type: 'boolean',
@@ -69,26 +87,6 @@ const {
         }
       }
     }, true)
-
-    .usage(
-      '$0 <command> [options...]',
-      'Runs command as-is using `harperdb <command> [options...]`.',
-      (yargs) => {
-        yargs
-          .parserConfiguration({
-            'unknown-options-as-args': true,
-          })
-          .strict(false);
-      },
-      async (argv) => {
-        const command = argv.command;
-        const commandArgs = argv.options;
-        const options = { ...argv };
-
-        await executeCommand(command, commandArgs, options);
-      }
-    )
-
     .fail((msg, err, yargs) => {
       if (err) {
         logger.error(err.message);
