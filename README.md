@@ -50,19 +50,29 @@ All commands available to `harperdb` are available to `hdb`. For example, `hdb r
 
 ### Custom Commands
 
-- **reset**: Resets the HarperDB instance components to its initial state by dropping all components.
+- **`hdb <command> [options...]`**: Runs the command as-is using `harperdb <command> [options...]`.
+- **`hdb init`**: Initialize the current project with a `.env.harperdb` file.
+- **`hdb components list`**: List all components in the HarperDB instance.
+
+  Usage:
+
   ```bash
-  hdb components reset
+  hdb components list # List all components
+  hdb components list [name] # List a specific component and its file structure
   ```
-- **drop**: Interactive selection of components to drop.
-  ```bash
-  hdb components drop
-  ```
-- **logs**: Retrieve logs from HarperDB with filtering and lookback duration.
+
+- **`hdb components drop`**: Selectively drop components from the HarperDB instance.
+
+- **`hdb components reset`**: Resets the HarperDB instance components to its initial state by dropping all non-HarperDB components.
+- **`hdb logs`**: Retrieve logs from HarperDB with filtering and lookback duration.
+
+  Usage:
+
   ```bash
   hdb logs # Show logs from the last 15 minutes
   hdb logs filter="error" # Show logs with the word "error" in the message
   hdb logs filter=/some-regex/ lookback=45 # Show logs from the last 45 minutes matching the expression in the message
+  hdb logs --tail # Tail the logs in real-time
   ```
 
 ## License
