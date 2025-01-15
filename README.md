@@ -1,4 +1,4 @@
-# hdb_helper
+# HarperDB CLI Helper
 
 A helper script for managing HarperDB operations.
 
@@ -48,7 +48,7 @@ hdb <command> [options...]
 
 All commands available to `harperdb` are available to `hdb`. For example, `hdb run .` is equivalent to `harperdb run .`.
 
-### Custom Commands
+## Commands
 
 - **`hdb <command> [options...]`**: Runs the command as-is using `harperdb <command> [options...]`.
 - **`hdb init`**: Initialize the current project with a `.env.harperdb` file.
