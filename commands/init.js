@@ -1,4 +1,4 @@
-const { initialize } = require('../utils/env.js');
+const { initialize } = require('../utils/configManager.js');
 
 exports.command = 'init';
 exports.describe = 'Initialize the .env.hdb file with default values';

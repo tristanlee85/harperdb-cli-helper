@@ -9,13 +9,14 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,json,md}\""
   },
   "dependencies": {
-    "@inquirer/prompts": "^7.2.3",
+    "@inquirer/prompts": "^7.3.2",
     "chalk": "^4.1.2",
     "dotenv": "^16.4.7",
-    "inquirer": "^8.2.0",
     "winston": "^3.17.0",
     "yargs": "^17.7.2"
   },
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@eslint/js": "^9.18.0",
     "eslint": "^9.18.0",
-    "globals": "^15.14.0"
+    "globals": "^15.14.0",
+    "prettier": "^3.2.5"
   }
 }

@@ -7,7 +7,7 @@ const {
   initialize,
   isInitialized,
   loadEnvironment,
-} = require('./utils/env.js');
+} = require('./utils/configManager.js');
 const logger = require('./utils/logger.js');
 const prompt = require('./utils/prompt.js');
 const {
@@ -15,6 +15,7 @@ const {
   AUTO_RESTART_COMMANDS,
   BYPASS_PROMPT,
 } = require('./utils/constants.js');
+const chalk = require('chalk');
 
 (async () => {
   await yargs(hideBin(process.argv))
@@ -45,6 +46,14 @@ const {
         ', '
       )}]`,
     })
+    .option('env', {
+      describe: 'Environment to use',
+      type: 'string',
+    })
+    .option('instance', {
+      describe: 'Instance URL to use',
+      type: 'string',
+    })
     .strictCommands(false)
     .middleware(async (argv, yargs) => {
       if (argv.middlewareExecuted) {
@@ -55,28 +64,47 @@ const {
       const command = argv.command || argv._[0];
       const commandArgs = argv.options || argv._.slice(1);
 
-      if (!isInitialized()) {
-        const confirm = await prompt(
-          `This project has not been initialized for 'hdb' commands. Initialize now?`
-        );
-        if (!confirm) {
-          yargs.exit(0);
+      if (!['init', 'config'].includes(command)) {
+        if (!isInitialized()) {
+          const confirm = await prompt(
+            `This project has not been initialized for 'hdb' commands. Initialize now?`
+          );
+          if (!confirm) {
+            yargs.exit(0);
+          }
+          if (!(await initialize())) {
+            yargs.exit(0);
+          }
         }
-        if (!(await initialize())) {
-          yargs.exit(0);
-        }
-      }
 
-      if (command !== 'init') {
-        const { HARPERDB_TARGET, CLI_TARGET_USERNAME, CLI_TARGET_PASSWORD } =
-          loadEnvironment();
-        logger.info(`
-    Configuration:
-      HARPERDB_TARGET: ${HARPERDB_TARGET}
-      CLI_TARGET_USERNAME: ${CLI_TARGET_USERNAME}
-      CLI_TARGET_PASSWORD: ${CLI_TARGET_PASSWORD}
-      COMMAND: ${command} ${commandArgs.join(' ')}
-              `);
+        const env = await loadEnvironment({
+          env: argv.env,
+          instance: argv.instance,
+        });
+        logger.clean.info('\n' + chalk.bold('Configuration'));
+        logger.clean.info(
+          chalk.dim('├─') +
+            chalk.yellow(' Environment ') +
+            chalk.dim('──────────────────────────────')
+        );
+        logger.clean.info(
+          chalk.dim('│  ') +
+            `${chalk.cyan(env.HDB_ENV || 'default')} → ${chalk.green(env.HARPERDB_TARGET)}`
+        );
+        logger.clean.info(
+          chalk.dim('│  ') +
+            `${chalk.gray('as')} ${chalk.blue(env.CLI_TARGET_USERNAME)}`
+        );
+        logger.clean.info(chalk.dim('│'));
+        logger.clean.info(
+          chalk.dim('└─') +
+            chalk.yellow(' Command ') +
+            chalk.dim('─────────────────────────────────')
+        );
+        logger.clean.info(
+          chalk.dim('   ') + chalk.white(`${command} ${commandArgs.join(' ')}`)
+        );
+        logger.clean.info('');
 
         if (!BYPASS_PROMPT.includes(command)) {
           const confirm = await prompt('Are you sure you want to continue?');
@@ -97,6 +125,7 @@ const {
     })
     .help('help')
     .showHelpOnFail(false)
+    .wrap(Math.min(yargs.terminalWidth(), 120))
     .parse();
 
   process.on('SIGINT', () => {

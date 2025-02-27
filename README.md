@@ -4,11 +4,13 @@ A helper script for managing HarperDB operations.
 
 ## Table of Contents
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [Commands](#commands)
-- [License](#license)
+- [HarperDB CLI Helper](#harperdb-cli-helper)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+  - [Usage](#usage)
+  - [Commands](#commands)
+  - [License](#license)
 
 ## Installation
 
@@ -52,6 +54,23 @@ All commands available to `harperdb` are available to `hdb`. For example, `hdb r
 
 - **`hdb <command> [options...]`**: Runs the command as-is using `harperdb <command> [options...]`.
 - **`hdb init`**: Initialize the current project with a `.env.harperdb` file.
+- **`hdb api <operation>`**: Run any HarperDB API operation with custom parameters.
+
+  Usage:
+
+  ```bash
+  # Execute operation with simple parameters
+  hdb api cluster_status --param1=value1 --param2=value2
+
+  # Execute operation with complex JSON parameters
+  hdb api update_node --json='{"complex":"value", "array":["item1"]}' --hostname=server1
+
+  # Execute operation with both JSON and simple parameters
+  hdb api create_schema --json='{"nested":{"key":"value"}}' --name=dev
+  ```
+
+  All parameters must use the `--key=value` format. Complex objects can be provided using the `--json` parameter, which will be merged with any other parameters provided.
+
 - **`hdb components list`**: List all components in the HarperDB instance.
 
   Usage:

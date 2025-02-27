@@ -9,7 +9,7 @@ module.exports = async function runAPIOperation(command, commandArgs) {
     ...commandArgs,
   };
 
-  logger.info(
+  logger.verbose.info(
     `Running API operation: ${command}\n${JSON.stringify(requestBody, null, 2)}`
   );
 
@@ -26,7 +26,7 @@ module.exports = async function runAPIOperation(command, commandArgs) {
 
   if (!response.ok) {
     const error = await response.text();
-    logger.error(error);
+    logger.verbose.error(error);
     throw new Error(error);
   }
 

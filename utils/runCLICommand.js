@@ -10,7 +10,7 @@ module.exports = async function runCLICommand(command, commandArgs) {
     `target=${process.env.HARPERDB_TARGET}`,
   ];
 
-  logger.info(`Running command: ${HDB_EXEC} ${args.join(' ')}`);
+  logger.verbose.info(`Running command: ${HDB_EXEC} ${args.join(' ')}`);
   return new Promise((resolve, reject) => {
     const startTime = performance.now();
     const process = spawn(HDB_EXEC, args, {
@@ -21,19 +21,19 @@ module.exports = async function runCLICommand(command, commandArgs) {
     let stderr = '';
 
     process.stdout.on('data', (data) => {
-      logger.info(data.toString());
+      logger.verbose.info(data.toString());
       stdout += data.toString();
     });
 
     process.stderr.on('data', (data) => {
-      logger.error(data.toString());
+      logger.verbose.error(data.toString());
       stderr += data.toString();
     });
 
     process.on('close', (code) => {
       const endTime = performance.now();
       const duration = ((endTime - startTime) / 1000).toFixed(2);
-      logger.info(`Command completed in ${duration} seconds`);
+      logger.verbose.info(`Command completed in ${duration} seconds`);
       if (code === 0) {
         resolve(stdout);
       } else {
