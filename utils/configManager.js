@@ -2,13 +2,29 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const chalk = require('chalk');
+const deepmerge = require('deepmerge');
 const logger = require('./logger.js');
 const { input, confirm, select, password } = require('@inquirer/prompts');
+const { autoConfirm } = require('./prompt.js');
 
+// Stores settings such as default environment and instance
+const CONFIG_FILE = '.hdbconfig.json';
+const CONFIG_FILE_PATH = path.join(process.cwd(), CONFIG_FILE);
+// Stores HarperDB instance credentials
 const ENV_FILE = '.env.harperdb';
+const ENV_FILE_PATH = path.join(process.cwd(), ENV_FILE);
+
+const GITIGNORE = '.gitignore';
+const GITIGNORE_PATH = path.join(process.cwd(), GITIGNORE);
+const IGNORE_CONTENTS = [
+  '# HarperDB Helper Configuration',
+  CONFIG_FILE,
+  ENV_FILE,
+];
+
 const INSTANCE_URL_MESSAGE =
-  'Format: https://<instance>.harperdbcloud.com:9925\n' +
-  'Or just enter the instance name:';
+  'Format: https://<instance_hostname>:9925\n' +
+  'Or just enter the instance hostname (e.g. my-instance.harperfabric.com):';
 
 const PROMPT_THEME = {
   prefix: {
@@ -33,18 +49,85 @@ const PROMPT_THEME = {
   validationFailureMode: 'clear',
 };
 
-function updateEnvFile(envPath, updates) {
-  // Read existing content
-  let content = '';
-  if (fs.existsSync(envPath)) {
-    content = fs.readFileSync(envPath, 'utf8');
-  }
+/**
+ * Determines if the current directory has been initialized via `hdb init` by
+ * checking for the existence of the .env.harperdb file
+ */
+function isInitialized() {
+  return fs.existsSync(ENV_FILE_PATH) && fs.existsSync(CONFIG_FILE_PATH);
+}
 
-  // Parse existing content into lines
+/**
+ * Reads the .env.harperdb file
+ */
+function readEnvFile() {
+  return fs.readFileSync(ENV_FILE_PATH, 'utf8');
+}
+
+/**
+ * Parses the .env.harperdb file into an object
+ */
+function parseEnvFile() {
+  return dotenv.parse(readEnvFile());
+}
+
+/**
+ * Writes the .env.harperdb file
+ * @param {string} content - The content to write to the file
+ */
+function writeEnvFile(content) {
+  fs.writeFileSync(ENV_FILE_PATH, content);
+}
+
+/**
+ * Determines if the current directory has been initialized via `hdb init` by
+ * checking for the existence of the .hdbconfig file
+ */
+function hasConfigFile() {
+  return fs.existsSync(CONFIG_FILE_PATH);
+}
+
+/**
+ * Reads the .hdbconfig file
+ */
+function readConfigFile() {
+  return fs.readFileSync(CONFIG_FILE_PATH, 'utf8');
+}
+
+/**
+ * Parses the .hdbconfig.json file into an object
+ * @param {Object} defaultConfig - The default configuration
+ * @returns {Object} The parsed configuration
+ */
+function parseConfigFile(defaultConfig) {
+  try {
+    return JSON.parse(readConfigFile());
+  } catch (error) {
+    if (defaultConfig) {
+      return defaultConfig;
+    }
+    throw new Error(`Error parsing ${CONFIG_FILE}: ${error.message}`);
+  }
+}
+
+function updateConfigFile(updates, options = {}) {
+  const config = parseConfigFile({});
+  const mergedConfig = deepmerge(config, updates, options);
+  fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(mergedConfig, null, 2));
+}
+
+/**
+ * Updates the .env.harperdb file with the new/updated credentials
+ * @param {Object} updates - The key/value pairs to update in the file
+ */
+function updateEnvFile(updates) {
+  const content = readEnvFile();
+
   const lines = content.split('\n');
   const existingKeys = new Set();
 
-  // Update existing lines and track what we've seen
+  // We iterate over the lines instead of parsing/writing the from an object
+  // to preserve the original formatting including comments and empty lines.
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line.trim() && !line.startsWith('#')) {
@@ -68,30 +151,34 @@ function updateEnvFile(envPath, updates) {
   });
 
   // Write back to file, preserving empty lines and comments
-  fs.writeFileSync(envPath, lines.join('\n') + '\n');
+  writeEnvFile(lines.join('\n') + '\n');
 }
 
-function isInitialized() {
-  return fs.existsSync(path.join(process.cwd(), ENV_FILE));
-}
-
+/**
+ * Formats an instance URL
+ * @param {string} input - The instance URL to format
+ * @returns {string} The formatted instance URL
+ */
 function formatInstanceUrl(input) {
   try {
     // If it's already a full URL, extract the hostname
     if (input.startsWith('http://') || input.startsWith('https://')) {
-      const url = new URL(input);
-      // Remove any potential .harperdbcloud.com suffix to get clean instance name
-      const instance = url.hostname.replace('.harperdbcloud.com', '');
-      return `https://${instance}.harperdbcloud.com:9925`;
+      const { hostname } = new URL(input);
+      return `https://${hostname}:9925`;
     }
     // Otherwise, construct the URL from the instance name
-    return `https://${input}.harperdbcloud.com:9925`;
+    return `https://${input}:9925`;
   } catch (error) {
     throw new Error(`Invalid instance URL: ${error.message}`);
   }
 }
 
-async function addEnvironment(envPath) {
+/**
+ * Adds a new environment to the .env.harperdb file
+ */
+async function addEnvironment() {
+  const config = parseConfigFile({});
+
   const name = (
     await input({
       message: 'Environment name:',
@@ -125,7 +212,7 @@ async function addEnvironment(envPath) {
   do {
     instanceInput = await input({
       message:
-        'Instance URL (empty to finish, comma-separated for multiple)\n' +
+        'Instance URL (empty to finish, or comma-separated for multiple)\n' +
         INSTANCE_URL_MESSAGE,
       validate: (input) => {
         if (!input) return true;
@@ -156,18 +243,22 @@ async function addEnvironment(envPath) {
     throw new Error('At least one instance URL is required');
   }
 
-  const updates = {
-    [`ENV_${name}_USERNAME`]: username,
-    [`ENV_${name}_PASSWORD`]: pwd,
-    [`ENV_${name}_INSTANCES`]: Array.from(instances).join(','),
+  const newEnv = {
+    environments: {
+      [name]: {
+        username,
+        password: pwd,
+        instances: Array.from(instances),
+      },
+    },
   };
 
-  updateEnvFile(envPath, updates);
+  updateConfigFile(newEnv);
   logger.clean.info(`Added environment: ${name}`);
 
   const setDefault = await confirm({
     message: 'Would you like to set this as the default environment?',
-    default: true,
+    default: config.defaultEnv === null, // Only set as default if no default is set
     theme: PROMPT_THEME,
   });
 
@@ -184,38 +275,56 @@ async function addEnvironment(envPath) {
             theme: PROMPT_THEME,
           });
 
-    const defaultUpdates = {
-      DEFAULT_ENV: name,
-      DEFAULT_INSTANCE: instanceUrl,
-    };
-
-    updateEnvFile(envPath, defaultUpdates);
+    updateConfigFile({
+      defaultEnv: name,
+      defaultInstance: instanceUrl,
+    });
     logger.clean.info(`Set default environment to ${name} (${instanceUrl})`);
   }
 }
 
 async function initialize() {
   try {
-    const envPath = path.join(process.cwd(), ENV_FILE);
-    const examplePath = path.join(__dirname, '..', `${ENV_FILE}.example`);
-    let fileExists = fs.existsSync(envPath);
+    const envExamplePath = path.join(__dirname, '..', `${ENV_FILE}.example`);
+    const configExamplePath = path.join(
+      __dirname,
+      '..',
+      `${CONFIG_FILE}.example`
+    );
 
-    if (!fileExists) {
-      if (fs.existsSync(examplePath)) {
-        fs.copyFileSync(examplePath, envPath);
-        logger.clean.info(`Created ${ENV_FILE} from example`);
-      } else {
-        logger.warn(`Example file not found at ${examplePath}`);
-        fs.writeFileSync(envPath, '# HarperDB Configuration\n');
-        logger.clean.info(`Created empty ${ENV_FILE}`);
-      }
-      fileExists = true;
-    } else {
-      logger.warn(`${ENV_FILE} already exists`);
+    if (!fs.existsSync(ENV_FILE_PATH)) {
+      fs.copyFileSync(envExamplePath, ENV_FILE_PATH);
+      logger.clean.info(`Created ${ENV_FILE} from example`);
     }
 
+    if (!fs.existsSync(CONFIG_FILE_PATH)) {
+      fs.copyFileSync(configExamplePath, CONFIG_FILE_PATH);
+      logger.clean.info(`Created ${CONFIG_FILE} from example`);
+    }
+
+    if (!fs.existsSync(GITIGNORE_PATH)) {
+      fs.writeFileSync(GITIGNORE_PATH, IGNORE_CONTENTS.join('\n'));
+      logger.clean.info(`Created ${GITIGNORE}`);
+    } else {
+      const contents = fs.readFileSync(GITIGNORE_PATH, 'utf8');
+
+      // Skip the first item as it is a comment
+      const missingContents = IGNORE_CONTENTS.slice(1).filter(
+        (content) => !contents.includes(content)
+      );
+      if (missingContents.length > 0) {
+        fs.writeFileSync(
+          GITIGNORE_PATH,
+          [...contents, ...missingContents].join('\n')
+        );
+        logger.clean.info(`Updated ${GITIGNORE}`);
+      }
+    }
+
+    migrateEnvToConfig();
+
     // Check if any environments are configured
-    const { envs } = getEnvironments();
+    const envs = getEnvironments();
     if (envs.size === 0) {
       const addEnv = await confirm({
         message: 'No environments configured. Would you like to add one now?',
@@ -223,7 +332,7 @@ async function initialize() {
       });
 
       if (addEnv) {
-        await addEnvironment(envPath);
+        await addEnvironment();
       } else {
         logger.clean.info(
           "Run 'hdb config add-env' when you're ready to add an environment"
@@ -238,42 +347,20 @@ async function initialize() {
   }
 }
 
+/**
+ * Gets the environments from the .hdbconfig.json file
+ * @returns {Map} The environments
+ */
 function getEnvironments() {
-  const envPath = path.join(process.cwd(), ENV_FILE);
-  const envs = new Map();
-  const config = fs.existsSync(envPath)
-    ? dotenv.parse(fs.readFileSync(envPath))
-    : {};
-
-  // Check for legacy format
-  if (config.CLI_TARGET_USERNAME) {
-    envs.set('default', {
-      username: config.CLI_TARGET_USERNAME,
-      password: config.CLI_TARGET_PASSWORD,
-      instances: [config.HARPERDB_TARGET],
-    });
-  }
-
-  // Parse ENV_ format
-  Object.entries(config).forEach(([key, value]) => {
-    if (key.startsWith('ENV_')) {
-      const [, envName, type] = key.split('_');
-      if (!envs.has(envName)) {
-        envs.set(envName, {});
-      }
-
-      const env = envs.get(envName);
-      if (type === 'USERNAME') env.username = value;
-      if (type === 'PASSWORD') env.password = value;
-      if (type === 'INSTANCES') env.instances = value.split(',');
-    }
-  });
-
-  return { envs, config };
+  const config = parseConfigFile({});
+  return new Map(Object.entries(config.environments));
 }
 
-async function addInstance(envPath) {
-  const { envs } = getEnvironments();
+/**
+ * Adds a new instance to an environment
+ */
+async function addInstance() {
+  const envs = getEnvironments();
 
   if (!envs.size) {
     throw new Error('No environments configured. Add one first.');
@@ -314,94 +401,85 @@ async function addInstance(envPath) {
     updates[`ENV_${env}_INSTANCES`] = Array.from(instances).join(',');
   }
 
-  updateEnvFile(envPath, updates);
+  updateConfigFile(updates);
   logger.clean.info(`Added instance to ${env}`);
 }
 
+/**
+ * Loads the environment
+ * @param {Object} options - The options
+ * @returns {Object} The environment
+ */
 async function loadEnvironment(options = {}) {
-  const envPath = path.join(process.cwd(), ENV_FILE);
-
-  if (!fs.existsSync(envPath)) {
-    throw new Error('No .env.harperdb found. Run `hdb config init` first.');
+  if (!isInitialized()) {
+    throw new Error('Missing configuration file(s). Run `hdb init` first.');
   }
 
-  const { envs, config } = getEnvironments();
-
-  // Check for CLI flags or environment variables
-  const targetEnv = options.env || process.env.HDB_ENV || config.DEFAULT_ENV;
-  const targetInstance =
-    options.instance || process.env.HDB_INSTANCE || config.DEFAULT_INSTANCE;
-
-  // Check for legacy format
-  if (config.CLI_TARGET_USERNAME) {
-    process.env.CLI_TARGET_USERNAME = config.CLI_TARGET_USERNAME;
-    process.env.CLI_TARGET_PASSWORD = config.CLI_TARGET_PASSWORD;
-    process.env.HARPERDB_TARGET = config.HARPERDB_TARGET;
-    return { parsed: process.env };
-  }
+  const envs = getEnvironments();
+  const config = parseConfigFile({});
 
   let selectedEnv, instance;
-  const hasDefaults = config.DEFAULT_ENV && config.DEFAULT_INSTANCE;
 
-  if (hasDefaults && !options.env && !options.instance) {
-    // Use defaults but allow quick switch
-    process.stdout.write(
-      chalk.dim(
-        `Using ${chalk.cyan(config.DEFAULT_ENV)} (press 'x' within 1s to change)...`
-      )
-    );
+  // Environment variables are set, which overrides any CLI flags or .env.harperdb settings
+  const hasEnvvars = process.env.HDB_ENV && process.env.HDB_INSTANCE;
 
-    const shouldSwitch = await new Promise((resolve) => {
-      let timeoutId;
-      const cleanup = () => {
-        process.stdin.setRawMode(false);
-        process.stdin.pause();
-        process.stdin.removeAllListeners('data');
-        clearTimeout(timeoutId);
-      };
+  // CLI flags are set, which overrides any .env.harperdb settings
+  const hasFlags = options.env && options.instance;
 
-      process.stdin.setRawMode(true);
-      process.stdin.resume();
-      process.stdin.once('data', (data) => {
-        cleanup();
-        resolve(data.toString().toLowerCase() === 'x');
+  // Default env and instance are set in the .env.harperdb file
+  const hasDefaults = config.defaultEnv && config.defaultInstance;
+
+  if (hasEnvvars) {
+    selectedEnv = envs.get(process.env.HDB_ENV);
+    instance = process.env.HDB_INSTANCE;
+  } else if (hasFlags) {
+    selectedEnv = envs.get(options.env);
+    instance = options.instance;
+  } else if (hasDefaults) {
+    const envName = config.defaultEnv;
+    selectedEnv = envs.get(envName);
+    instance = config.defaultInstance;
+
+    if (!selectedEnv || !instance) {
+      logger.clean.warn(
+        `Invalid default environment or instance: ${envName} - ${instance}`
+      );
+      selectedEnv = null;
+      instance = null;
+    } else {
+      // Use defaults but allow quick switch
+      const shouldContinue = await autoConfirm({
+        query: `Using default environment: ${chalk.cyan(envName)} (${chalk.cyan(instance)})`,
+        escKeyMsg: `Press ${chalk.red('ESC')} to change`,
       });
-
-      timeoutId = setTimeout(() => {
-        cleanup();
-        resolve(false);
-      }, 1000);
-    });
-
-    process.stdout.write('\r' + ' '.repeat(80) + '\r'); // Clear the prompt
-
-    if (!shouldSwitch) {
-      selectedEnv = envs.get(config.DEFAULT_ENV);
-      instance = config.DEFAULT_INSTANCE;
+      // Clear the environment and instance so they can be selected again
+      if (!shouldContinue) {
+        selectedEnv = null;
+        instance = null;
+      }
     }
   }
 
-  // If no defaults or switch requested, go through selection
-  if (!selectedEnv) {
-    if (targetEnv && envs.has(targetEnv)) {
-      selectedEnv = envs.get(targetEnv);
-    } else if (!targetEnv && envs.size === 1) {
-      selectedEnv = envs.values().next().value;
-    } else {
-      throw new Error(`Environment "${targetEnv}" not found`);
-    }
+  // If no valid environment or instance is set, go through selection
+  if (!selectedEnv || !instance) {
+    const envName = await select({
+      message: 'Select environment:',
+      choices: Array.from(envs.keys()).map((key) => ({
+        value: key,
+        label: key,
+      })),
+      theme: PROMPT_THEME,
+    });
+    selectedEnv = envs.get(envName);
 
-    if (!instance) {
-      if (targetInstance && selectedEnv.instances.includes(targetInstance)) {
-        instance = targetInstance;
-      } else if (!targetInstance && selectedEnv.instances.length === 1) {
-        instance = selectedEnv.instances[0];
-      } else {
-        throw new Error(
-          `Instance "${targetInstance}" not found in environment`
-        );
-      }
-    }
+    instance = await select({
+      message: 'Select instance:',
+      choices: selectedEnv.instances.map((url) => ({
+        value: url,
+        label: url,
+      })),
+      theme: PROMPT_THEME,
+    });
   }
 
   // Set environment variables
@@ -412,7 +490,58 @@ async function loadEnvironment(options = {}) {
     (key) => envs.get(key) === selectedEnv
   );
 
-  return { parsed: process.env };
+  return {
+    CLI_TARGET_USERNAME: process.env.CLI_TARGET_USERNAME,
+    CLI_TARGET_PASSWORD: process.env.CLI_TARGET_PASSWORD,
+    HARPERDB_TARGET: process.env.HARPERDB_TARGET,
+    HDB_ENV: process.env.HDB_ENV,
+  };
+}
+
+/**
+ * Migrates the environment configuration from .env.harperdb to .hdbconfig.json
+ */
+function migrateEnvToConfig() {
+  const config = parseConfigFile({});
+  const env = parseEnvFile();
+  const envExamplePath = path.join(__dirname, '..', `${ENV_FILE}.example`);
+
+  if (!Object.keys(env).length) {
+    return;
+  }
+
+  // Process each environment from .env.harperdb
+  let updated = 0;
+  Object.entries(env).forEach(([key, value]) => {
+    if (key.startsWith('ENV_') && key.endsWith('_INSTANCES')) {
+      const envName = key.slice(4, -10); // Remove 'ENV_' prefix and '_INSTANCES' suffix
+      const instances = value.split(',').map((url) => url.trim());
+
+      // Check if environment already exists in config
+      const targetKey = config.environments[envName]
+        ? `${envName}_COPY`
+        : envName;
+
+      // Add environment to config
+      config.environments[targetKey] = {
+        username: env[`ENV_${envName}_USERNAME`] || 'HDB_ADMIN',
+        password: env[`ENV_${envName}_PASSWORD`] || '',
+        instances,
+      };
+      updated++;
+    }
+  });
+
+  if (updated) {
+    logger.clean.info(
+      `Migrated ${updated} environments from .env.harperdb to .hdbconfig.json`
+    );
+    // Write updated config
+    fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(config, null, 2));
+
+    // Copy example env file over existing
+    fs.copyFileSync(envExamplePath, ENV_FILE_PATH);
+  }
 }
 
 module.exports = {
@@ -422,6 +551,8 @@ module.exports = {
   getEnvironments,
   loadEnvironment,
   updateEnvFile,
+  updateConfigFile,
   addEnvironment,
   addInstance,
+  migrateEnvToConfig,
 };

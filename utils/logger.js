@@ -16,97 +16,39 @@ const normalFormat = format.combine(
   format.printf(({ level, message }) => `[${level}]: ${message}`)
 );
 
-// Default logger uses normal format (includes level)
-const logger = createLogger({
-  level: 'info',
-  transports: [
-    new transports.Console({
-      format: normalFormat,
-    }),
-  ],
-});
+const verboseFormat = format.combine(
+  format.colorize(),
+  format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  timestampFormat
+);
 
-let loggingEnabled = true;
-
-logger.toggleLogging = function (enable) {
-  loggingEnabled = enable;
-  this.transports.forEach((transport) => {
-    transport.silent = !loggingEnabled;
+const createSilentLogger = (format) => {
+  const logger = createLogger({
+    level: 'info',
+    silent: false,
+    transports: [new transports.Console({ format })],
   });
+
+  logger.toggleLogging = function (enable, all = false) {
+    if (all) {
+      loggers.forEach((logger) => {
+        logger.silent = !enable;
+      });
+    } else {
+      this.silent = !enable;
+    }
+  };
+
+  return logger;
 };
 
-// Clean format (no level, no timestamps)
-logger.clean = {
-  info: (message) => {
-    const cleanLogger = createLogger({
-      level: 'info',
-      transports: [new transports.Console({ format: cleanFormat })],
-    });
-    cleanLogger.info(message);
-  },
-  warn: (message) => {
-    const cleanLogger = createLogger({
-      level: 'warn',
-      transports: [new transports.Console({ format: cleanFormat })],
-    });
-    cleanLogger.warn(message);
-  },
-  error: (message) => {
-    const cleanLogger = createLogger({
-      level: 'error',
-      transports: [new transports.Console({ format: cleanFormat })],
-    });
-    cleanLogger.error(message);
-  },
-};
+const logger = createSilentLogger(normalFormat);
+const cleanLogger = createSilentLogger(cleanFormat);
+const verboseLogger = createSilentLogger(verboseFormat);
 
-// Verbose format (includes timestamps)
-logger.verbose = {
-  info: (message) => {
-    const verboseLogger = createLogger({
-      level: 'info',
-      transports: [
-        new transports.Console({
-          format: format.combine(
-            format.colorize(),
-            format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-            timestampFormat
-          ),
-        }),
-      ],
-    });
-    verboseLogger.info(message);
-  },
-  warn: (message) => {
-    const verboseLogger = createLogger({
-      level: 'warn',
-      transports: [
-        new transports.Console({
-          format: format.combine(
-            format.colorize(),
-            format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-            timestampFormat
-          ),
-        }),
-      ],
-    });
-    verboseLogger.warn(message);
-  },
-  error: (message) => {
-    const verboseLogger = createLogger({
-      level: 'error',
-      transports: [
-        new transports.Console({
-          format: format.combine(
-            format.colorize(),
-            format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-            timestampFormat
-          ),
-        }),
-      ],
-    });
-    verboseLogger.error(message);
-  },
-};
+const loggers = [logger, cleanLogger, verboseLogger];
+
+logger.clean = cleanLogger;
+logger.verbose = verboseLogger;
 
 module.exports = logger;

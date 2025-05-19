@@ -4,7 +4,7 @@ const logger = require('../utils/logger.js');
 const {
   ENV_FILE,
   getEnvironments,
-  updateEnvFile,
+  updateConfigFile,
   initialize,
   addEnvironment,
   addInstance,
@@ -71,7 +71,7 @@ exports.handler = async (argv) => {
     }
 
     case 'list': {
-      const { envs } = getEnvironments();
+      const envs = getEnvironments();
 
       if (envs.size === 0) {
         logger.info('No environments found');
@@ -98,7 +98,7 @@ exports.handler = async (argv) => {
     }
 
     case 'use': {
-      const { envs } = getEnvironments();
+      const envs = getEnvironments();
 
       // Get environment name from args or prompt
       let envName;
@@ -143,12 +143,10 @@ exports.handler = async (argv) => {
       }
 
       // Save defaults to config
-      const updates = {
-        DEFAULT_ENV: envName,
-        DEFAULT_INSTANCE: instanceUrl,
-      };
-
-      updateEnvFile(envPath, updates);
+      updateConfigFile({
+        defaultEnv: envName,
+        defaultInstance: instanceUrl,
+      });
       logger.clean.info(
         `Set default environment to ${envName} (${instanceUrl})`
       );

@@ -1,5 +1,8 @@
 const runAPIOperation = require('../utils/runAPIOperation.js');
 const logger = require('../utils/logger.js');
+const fs = require('fs').promises;
+const path = require('path');
+const os = require('os');
 
 exports.command = 'logs';
 exports.describe =
@@ -11,8 +14,8 @@ exports.builder = {
     describe: 'Filter logs by a specific keyword or regex',
     type: 'string',
   },
-  lookback: {
-    alias: 't',
+  duration: {
+    alias: 'd',
     describe: 'Lookback duration in minutes',
     type: 'number',
     default: 15,
@@ -23,103 +26,144 @@ exports.builder = {
     type: 'string',
   },
   tail: {
+    alias: 't',
     describe: 'Tail logs',
     type: 'boolean',
     default: false,
   },
+  out: {
+    alias: 'o',
+    describe: 'Output path for JSON file',
+    type: 'string',
+  },
 };
 
 exports.handler = async (argv) => {
-  const { filter, lookback, level, tail } = argv;
+  const { filter, duration, level, tail, out } = argv;
   const logMap = new Map();
   let isFirstFetch = true;
+  const outPath = out ? path.join(process.cwd(), out) : null;
+  let isShuttingDown = false;
 
-  const fetchLogs = async () => {
-    try {
-      const from = new Date(
-        Date.now() - parseInt(lookback, 10) * 60 * 1000
-      ).toISOString();
-      const until = new Date().toISOString();
+  // Handle graceful shutdown
+  const cleanup = async () => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    process.exit(0);
+  };
 
-      logger.info(`Getting logs from ${from} to ${until}`);
+  // Register shutdown handlers
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
 
-      const logs = await runAPIOperation('read_log', {
-        from,
-        until,
-        order: 'asc',
-        level,
-      });
+  async function* logGenerator() {
+    while (!isShuttingDown) {
+      try {
+        const from = new Date(
+          Date.now() - parseInt(duration, 10) * 60 * 1000
+        ).toISOString();
+        const until = new Date().toISOString();
 
-      let regexFilter;
-      if (filter && filter.startsWith('/') && filter.endsWith('/')) {
-        regexFilter = new RegExp(filter.slice(1, -1), 'gi');
-      } else {
-        regexFilter = new RegExp(filter, 'gi');
-      }
+        logger.info(`Getting logs from ${from} to ${until}`);
 
-      const boldColorStart = '\x1b[1;31m'; // Bold red
-      const colorReset = '\x1b[0m';
+        const logs = await runAPIOperation('read_log', {
+          from,
+          until,
+          order: 'asc',
+          level,
+        });
 
-      const filteredLogs = logs
-        .filter((log) => {
+        let regexFilter;
+        if (filter && filter.startsWith('/') && filter.endsWith('/')) {
+          regexFilter = new RegExp(filter.slice(1, -1), 'gi');
+        } else if (filter) {
+          regexFilter = new RegExp(filter, 'gi');
+        }
+
+        const boldColorStart = '\x1b[1;31m';
+        const colorReset = '\x1b[0m';
+
+        for (const log of logs) {
+          if (isShuttingDown) return;
+
           const crypto = require('crypto');
           const logKey = crypto
             .createHash('sha256')
             .update(`${log.timestamp}${log.message}`)
             .digest('hex');
 
-          if (logMap.has(logKey)) return false;
+          if (logMap.has(logKey)) continue;
           logMap.set(logKey, log);
-          return true;
-        })
-        .map((log) => {
-          if (!regexFilter) return log;
 
-          let message = log.message;
-
-          if (regexFilter.test(message)) {
-            message = message.replaceAll(
-              regexFilter,
-              (match) => `${boldColorStart}${match}${colorReset}`
-            );
-
-            return { ...log, message };
+          let processedLog = { ...log };
+          if (regexFilter) {
+            let message = log.message;
+            if (regexFilter.test(message)) {
+              message = message.replaceAll(
+                regexFilter,
+                (match) => `${boldColorStart}${match}${colorReset}`
+              );
+              processedLog = { ...log, message };
+            } else {
+              continue;
+            }
           }
-        })
-        .filter(Boolean);
 
-      logger.info(
-        filter ? `Logs matching ${filter}:` : 'All logs:',
-        filteredLogs.length,
-        '\n'
-      );
+          yield processedLog;
+        }
 
-      filteredLogs.forEach((log) => {
+        if (isFirstFetch) {
+          logger.toggleLogging(false, true);
+          isFirstFetch = false;
+        }
+
+        if (!tail) {
+          return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch (error) {
+        logger.toggleLogging(true, true);
+        logger.error('Error occurred while retrieving logs:', error.message);
+        if (!tail) {
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+  }
+
+  try {
+    let logsArray = [];
+    if (outPath) {
+      // Initialize main file if it doesn't exist
+      try {
+        const existingContent = await fs.readFile(outPath, 'utf8');
+        logsArray = JSON.parse(existingContent);
+      } catch (error) {
+        await fs.writeFile(outPath, '[]');
+      }
+    }
+
+    for await (const log of logGenerator()) {
+      if (outPath) {
+        logsArray.push(log);
+        // Update the file with each new log
+        await fs.writeFile(outPath, JSON.stringify(logsArray, null, 2));
+      } else {
         console.group(log.timestamp);
         Object.entries(log).forEach(([key, value]) => {
           console.log(`${key}: ${value}`);
         });
         console.log('\n');
         console.groupEnd();
-      });
-    } catch (error) {
-      logger.toggleLogging(true);
-      logger.error('Error occurred while retrieving logs:', error.message);
-      if (!tail) {
-        throw error;
-      }
-    } finally {
-      if (isFirstFetch) {
-        logger.toggleLogging(false);
-        isFirstFetch = false;
-      }
-
-      if (tail) {
-        logger.toggleLogging(false);
-        setTimeout(fetchLogs, 1000);
       }
     }
-  };
-
-  await fetchLogs();
+  } catch (error) {
+    logger.toggleLogging(true, true);
+    logger.error('Error occurred while retrieving logs:', error.message);
+    throw error;
+  } finally {
+    await cleanup();
+  }
 };

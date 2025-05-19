@@ -7,6 +7,7 @@ const {
   initialize,
   isInitialized,
   loadEnvironment,
+  migrateEnvToConfig,
 } = require('./utils/configManager.js');
 const logger = require('./utils/logger.js');
 const prompt = require('./utils/prompt.js');
@@ -77,10 +78,13 @@ const chalk = require('chalk');
           }
         }
 
+        migrateEnvToConfig();
+
         const env = await loadEnvironment({
           env: argv.env,
           instance: argv.instance,
         });
+
         logger.clean.info('\n' + chalk.bold('Configuration'));
         logger.clean.info(
           chalk.dim('├─') +
@@ -89,7 +93,7 @@ const chalk = require('chalk');
         );
         logger.clean.info(
           chalk.dim('│  ') +
-            `${chalk.cyan(env.HDB_ENV || 'default')} → ${chalk.green(env.HARPERDB_TARGET)}`
+            `${chalk.cyan(env.HDB_ENV)} → ${chalk.green(env.HARPERDB_TARGET)}`
         );
         logger.clean.info(
           chalk.dim('│  ') +
@@ -107,9 +111,8 @@ const chalk = require('chalk');
         logger.clean.info('');
 
         if (!BYPASS_PROMPT.includes(command)) {
-          const confirm = await prompt('Are you sure you want to continue?');
+          const confirm = await prompt.autoConfirm();
           if (!confirm) {
-            logger.info('Exiting...');
             yargs.exit(1);
           }
         }
@@ -129,7 +132,6 @@ const chalk = require('chalk');
     .parse();
 
   process.on('SIGINT', () => {
-    logger.info('Terminating process...');
     process.exit(1);
   });
 })();
